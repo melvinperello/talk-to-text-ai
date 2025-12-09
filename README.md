@@ -52,7 +52,7 @@ Microsoft Windows 11 Pro  64-bit          10.0.26200
 ### CPU
 
 ```bat
-wmic os get Caption,OSArchitecture,Version
+wmic cpu get Name,NumberOfCores,NumberOfLogicalProcessors,MaxClockSpeed
 ```
 
 ```text

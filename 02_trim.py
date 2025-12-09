@@ -7,7 +7,7 @@ from pathlib import Path
 # CONFIG
 # ----------------------------------------------------------------------
 TARGET_SR = 16000
-PADDING_MS = 150   # padding around speech
+PADDING_MS = 150  # padding around speech
 # The constant (32768.0) is the int16 scaling factor used to convert 16‑bit PCM samples to float in roughly the [-1, 1] range.
 # Pydub returns signed 16‑bit integers; dividing by 32768.0 maps -32768 → -1.0 and 32767 → ~0.99997.
 _INT16_SCALE = 32768.0
@@ -20,7 +20,9 @@ def _load_m4a(path: str, target_sr: int) -> tuple[AudioSegment, np.ndarray]:
     """
     audio = AudioSegment.from_file(path)
     audio = audio.set_channels(1).set_frame_rate(target_sr)
-    samples = np.array(audio.get_array_of_samples()).astype("float32") / _INT16_SCALE
+    samples = (
+        np.array(audio.get_array_of_samples()).astype("float32") / _INT16_SCALE
+    )
     return audio, samples
 
 
@@ -30,9 +32,7 @@ def trim_audio(input_file: str, output_file: str) -> None:
 
     print("Loading Silero VAD...")
     model, utils = torch.hub.load(
-        repo_or_dir="snakers4/silero-vad",
-        model="silero_vad",
-        verbose=False
+        repo_or_dir="snakers4/silero-vad", model="silero_vad", verbose=False
     )
     model.to(device)
     # utils is a TUPLE → use indexing
@@ -62,8 +62,8 @@ def trim_audio(input_file: str, output_file: str) -> None:
     result = AudioSegment.empty()
 
     for seg in speech_ts:
-        start_ms = int(seg['start'] * 1000 / TARGET_SR) - PADDING_MS
-        end_ms = int(seg['end']   * 1000 / TARGET_SR) + PADDING_MS
+        start_ms = int(seg["start"] * 1000 / TARGET_SR) - PADDING_MS
+        end_ms = int(seg["end"] * 1000 / TARGET_SR) + PADDING_MS
 
         start_ms = max(start_ms, 0)
         end_ms = max(end_ms, 0)
@@ -78,21 +78,21 @@ def trim_audio(input_file: str, output_file: str) -> None:
 def main():
     input_dir = Path("01_recordings")
     output_dir = Path("02_trimmed")
-    
+
     # Create output directory if it doesn't exist
     output_dir.mkdir(exist_ok=True)
-    
+
     # Find all m4a files
     m4a_files = sorted(input_dir.glob("*.m4a"))
-    
+
     if not m4a_files:
         print(f"No m4a files found in {input_dir}")
         return
-    
+
     print(f"Found {len(m4a_files)} m4a file(s):")
     for file in m4a_files:
         print(f"  - {file.name}")
-    
+
     # Process each file
     for input_file in m4a_files:
         print(f"CUDA: {torch.cuda.is_available()}")
@@ -103,6 +103,7 @@ def main():
             trim_audio(input_file=str(input_file), output_file=str(output_file))
         except Exception as e:
             print(f"Error processing {input_file.name}: {e}")
+
 
 if __name__ == "__main__":
     main()
