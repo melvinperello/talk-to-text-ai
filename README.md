@@ -163,6 +163,9 @@ pip install matplotlib
 
 # Open AI Whispher
 pip install openai-whisper
+
+# Xet Storage is enabled for this repo, but the 'hf_xet' package is not installed. Falling back to regular HTTP download. For better performance, install the package with: `pip install huggingface_hub[hf_xet]` or `pip install hf_xet`
+pip install transformers accelerate sentencepiece
 ```
 
 ### How To Run?

@@ -1,2 +1,8 @@
 **/.mypy_cache/
 **/env/
+**/__pycache__
+**/__state__
+00_visualize/
+01_recordings/
+02_trimmed/
+03_transcripts/

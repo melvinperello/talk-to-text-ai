@@ -12,3 +12,6 @@ matplotlib==3.10.7
 
 # Open AI Whispher
 openai-whisper==20250625
+
+#
+Resemblyzer==0.1.4
