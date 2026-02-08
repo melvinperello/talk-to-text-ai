@@ -6,9 +6,11 @@ import librosa
 import torch
 import whisper
 import librosa
-from resemblyzer import VoiceEncoder, preprocess_wav
+from resemblyzer import VoiceEncoder
 from sklearn.cluster import AgglomerativeClustering
 import whisper
+import librosa.display
+import matplotlib.pyplot as plt
 
 
 _TARGET_SR = 16000
@@ -100,6 +102,45 @@ def transcribe(audio_samples, speech_segments):
         )  # IMPORTANT FOR GTX 1650 SUPER
         seg["text"] = result["text"]
 
+def visualize(audio_samples, speech_segments, output_file=None):
+    result_segments = []
+    for seg in speech_segments:
+        start_sample = int(seg["start"])
+        end_sample = int(seg["end"])
+        start_sample = max(start_sample, 0)
+        end_sample = max(end_sample, 0)
+        result_segments.append(audio_samples[start_sample:end_sample])
+    result = np.concatenate(result_segments) if result_segments else np.array([])
+    
+    # Calculate percentage trimmed
+    orig_duration = len(audio_samples) / _TARGET_SR
+    output_duration = len(result) / _TARGET_SR
+    percent_trimmed = ((orig_duration - output_duration) / orig_duration) * 100
+
+    plt.figure(figsize=(15, 8))
+    title = f"Talk To Text Voice Activity - {percent_trimmed:.1f}%"
+    plt.suptitle(title, fontsize=14, fontweight="bold")
+
+    # Original
+    plt.subplot(2, 1, 1)
+    librosa.display.waveshow(audio_samples, sr=_TARGET_SR, color="blue")
+    plt.title("Original Audio")
+
+    # # VAD-processed
+
+    plt.subplot(2, 1, 2)
+    librosa.display.waveshow(result, sr=_TARGET_SR, color="green")
+    plt.title("Voice Activity Detected")
+
+    plt.tight_layout()
+
+    # Save image with base filename (no extension)
+
+    plt.savefig(f"{output_file}.png", dpi=150, bbox_inches="tight")
+
+    plt.close()
+
+
 
 def diarization(audio_samples, speech_segments):
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -155,14 +196,15 @@ def format_speech_segments(speech_segments):
 
 
 def main():
-    FILE = "Voice 251208_225815.m4a"
+    FILE = "Voice 260209_010334.m4a"
     audio_data = load_audio(FILE)
     speech_segments = vad(audio_data)
-    transcribe(audio_data, speech_segments)
-    diarized_segments = diarization(audio_data, speech_segments)
-    formatted_output = format_speech_segments(diarized_segments)
-    with open(f"{FILE}.txt", "w", encoding="utf-8") as f:
-        f.write(formatted_output)
+    visualize(audio_data, speech_segments, FILE)
+    # transcribe(audio_data, speech_segments)
+    # diarized_segments = diarization(audio_data, speech_segments)
+    # formatted_output = format_speech_segments(diarized_segments)
+    # with open(f"{FILE}.txt", "w", encoding="utf-8") as f:
+    #     f.write(formatted_output)
 
 
 if __name__ == "__main__":
