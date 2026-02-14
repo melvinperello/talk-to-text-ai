@@ -17,6 +17,8 @@ import json
 import time
 import os
 import shutil
+import sys
+import argparse
 from loguru import logger
 
 client = OpenAI()
@@ -255,7 +257,7 @@ def diarization(audio_samples, speech_segments, output_file):
             }
         )
     logger.info(
-        "[Diarization] {} clustering embeddings",
+        "[Diarization] {} clustering embeddings completed",
         output_file,
     )
     end_time = time.time()
@@ -492,6 +494,9 @@ Speaker 1: Great, thanks. Next, the marketing update…
 
 
 def ttt(source_file):
+    logger.info("=============================================")
+    logger.info("[Processing] {}", source_file)
+    logger.info("=============================================")
     os.makedirs(FOLDER_RESOURCE_PATH, exist_ok=True)
 
     # Destination file in FOLDER_RESOURCE_PATH
@@ -544,14 +549,30 @@ def ttt(source_file):
 
 
 def main():
+    parser = argparse.ArgumentParser(
+        description="Process audio files for speech-to-text conversion"
+    )
+    parser.add_argument(
+        "path",
+        help="Path to a file or directory containing audio files to process",
+    )
+    args = parser.parse_args()
 
-    directory = "drive-download-20260208T194027Z-3-001"
+    path = args.path
 
-    if os.path.exists(directory):
-        files = os.listdir(directory)
+    if os.path.isdir(path):
+        # Process directory
+        all_files = os.listdir(path)
+        # Filter to only .m4a files
+        files = [f for f in all_files if f.lower().endswith(".m4a")]
         total_files = len(files)
+
+        if total_files == 0:
+            logger.error("[Main] No .m4a files found in directory: {}", path)
+            return
+
         logger.info(
-            "[Main] Found {} files to process in {}", total_files, directory
+            "[Main] Found {} .m4a files to process in {}", total_files, path
         )
 
         for i, file in enumerate(files, start=1):
@@ -559,7 +580,7 @@ def main():
                 "[Main] Processing file {} of {}: {}", i, total_files, file
             )
             try:
-                ttt(source_file=os.path.join(directory, file))
+                ttt(source_file=os.path.join(path, file))
                 logger.info(
                     "[Main] Successfully completed file {} of {}: {}",
                     i,
@@ -574,8 +595,23 @@ def main():
                     file,
                     str(e),
                 )
+    elif os.path.isfile(path):
+        # Process single file - check if it's .m4a
+        if not path.lower().endswith(".m4a"):
+            logger.error(
+                "[Main] Invalid file type: {}. Only .m4a files are supported.",
+                path,
+            )
+            return
+
+        logger.info("[Main] Processing single file: {}", path)
+        try:
+            ttt(source_file=path)
+            logger.info("[Main] Successfully completed file: {}", path)
+        except Exception as e:
+            logger.error("[Main] Error processing file: {} - {}", path, str(e))
     else:
-        logger.error("[Main] Directory not found: {}", directory)
+        logger.error("[Main] Path not found or invalid: {}", path)
 
 
 if __name__ == "__main__":
