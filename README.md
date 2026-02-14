@@ -52,7 +52,7 @@ Microsoft Windows 11 Pro  64-bit          10.0.26200
 ### CPU
 
 ```bat
-wmic os get Caption,OSArchitecture,Version
+wmic cpu get Name,NumberOfCores,NumberOfLogicalProcessors,MaxClockSpeed
 ```
 
 ```text
@@ -163,6 +163,9 @@ pip install matplotlib
 
 # Open AI Whispher
 pip install openai-whisper
+
+# Xet Storage is enabled for this repo, but the 'hf_xet' package is not installed. Falling back to regular HTTP download. For better performance, install the package with: `pip install huggingface_hub[hf_xet]` or `pip install hf_xet`
+pip install transformers accelerate sentencepiece
 ```
 
 ### How To Run?

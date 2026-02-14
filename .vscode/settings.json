@@ -1,0 +1,12 @@
+{
+    "workbench.iconTheme": "vscode-seedling-icon-theme-plus",
+    "terminal.integrated.defaultProfile.windows": "Command Prompt",
+    "editor.defaultFormatter": "ms-python.black-formatter",
+    "editor.formatOnSave": true,
+    "black-formatter.args": ["--line-length", "80"],
+    "pylint.args": ["--max-line-length=200", "--extension-pkg-whitelist=jq"],
+    "flake8.args": ["--ignore", "E501"],
+    "indentRainbow.indicatorStyle": "light",
+    "indentRainbow.lightIndicatorStyleLineWidth": 4,
+    "indentRainbow.excludedLanguages": ["plaintext"]
+}

@@ -1,0 +1,16 @@
+{
+    "recommendations": [
+        "rastikerdar.vscode-seedling-icon-theme",
+        "ms-python.mypy-type-checker",
+        "ms-python.pylint",
+        "ms-python.vscode-pylance",
+        "ms-python.debugpy",
+        "ms-python.black-formatter",
+        "ms-python.flake8",
+        "ms-python.isort",
+        "eamodio.gitlens",
+        "oderwat.indent-rainbow",
+        "Gruntfuggly.todo-tree",
+        "rangav.vscode-thunder-client"
+    ]
+}

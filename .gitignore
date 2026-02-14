@@ -1,1 +1,6 @@
 **/.mypy_cache/
+**/env/
+**/__pycache__
+**/__obsidian__*
+**/drive*
+**/*.m4a
