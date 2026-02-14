@@ -16,16 +16,21 @@ from urllib.parse import quote
 import json
 import time
 import os
+import shutil
+from loguru import logger
 
 client = OpenAI()
 
-
+FOLDER_PATH = "__obsidian__"
+FOLDER_RESOURCE_PATH = os.path.join(FOLDER_PATH, "resources")
 _TARGET_SR = 16000
 _PADDING_MS = 150
 _PADDING_SAMPLES = int(_PADDING_MS * _TARGET_SR / 1000)
+_CHANNEL = 1
 
 
 def load_audio(file_path):
+    logger.info("[Loading Audio] {}", file_path)
     # AudioSegment.from_file() (pydub):
     # Uses ffmpeg backend — handles many formats (m4a, mp3, ogg, etc.)
     # Returns a pydub.AudioSegment object (not NumPy arrays)
@@ -34,7 +39,13 @@ def load_audio(file_path):
     # Example: AudioSegment.from_file("file.m4a", format="m4a")
     audio_file = AudioSegment.from_file(file=file_path, format="m4a")
     # Set mono and 16khz
-    audio_file = audio_file.set_channels(1).set_frame_rate(_TARGET_SR)
+    audio_file = audio_file.set_channels(_CHANNEL).set_frame_rate(_TARGET_SR)
+    logger.info(
+        "[Loading Audio] {} set to channel : {} / sampling rate: {}",
+        file_path,
+        _CHANNEL,
+        _TARGET_SR,
+    )
     # -----------------------------------
     # sf.read() (soundfile):
     # Direct NumPy array output — optimized for numerical processing
@@ -46,7 +57,7 @@ def load_audio(file_path):
     audio_file.export(wav_buffer, format="wav")
     wav_buffer.seek(0)
     audio, original_sampling_rate = sf.read(wav_buffer)
-
+    logger.info("[Loading Audio] {} converting to wav in memory.", file_path)
     # convert to stero to mono.
     if audio.ndim > 1:
         audio = np.mean(audio, axis=1)
@@ -67,16 +78,22 @@ def load_audio(file_path):
     resample_audio = librosa.resample(
         audio, orig_sr=original_sampling_rate, target_sr=_TARGET_SR
     )
-
+    logger.info("[Loading Audio] {} resampling to {} Hz", file_path, _TARGET_SR)
     return resample_audio
 
 
 def vad(audio_samples, output_file=None):
+    logger.info("[Voice Activity Detection] {}", output_file)
+
     file_cache = f"{output_file}.vad.json"
     if output_file and os.path.exists(file_cache):
         with open(file_cache, "r", encoding="utf-8") as f:
             json_data = json.load(f)
-            print(f"using cache {file_cache}")
+            logger.info(
+                "[Voice Activity Detection] {} -- skipping processing, using cache data. {}",
+                output_file,
+                file_cache,
+            )
             return json_data.get("speech_segments", [])
 
     start_time = time.time()
@@ -99,10 +116,21 @@ def vad(audio_samples, output_file=None):
     audio_tensor = torch.tensor(audio_samples, device=device)
     speech_ts = get_speech_ts(audio_tensor, model, sampling_rate=_TARGET_SR)
 
+    logger.info(
+        "[Voice Activity Detection] {} finished with {} speech segments",
+        output_file,
+        len(speech_ts),
+    )
     # Apply padding to each segment
     for seg in speech_ts:
         seg["start"] = max(0, seg["start"] - _PADDING_SAMPLES)
         seg["end"] = min(len(audio_samples), seg["end"] + _PADDING_SAMPLES)
+
+    logger.info(
+        "[Voice Activity Detection] {} applied padding of {} ms to each segment",
+        output_file,
+        _PADDING_MS,
+    )
 
     end_time = time.time()
     json_data = {
@@ -114,6 +142,7 @@ def vad(audio_samples, output_file=None):
         "runtime_sec": end_time - start_time,
         "speech_segments": speech_ts,
     }
+
     if output_file:
         with open(file_cache, "w", encoding="utf-8") as f:
             json.dump(json_data, f, indent=2)
@@ -121,11 +150,17 @@ def vad(audio_samples, output_file=None):
 
 
 def transcribe(audio_samples, speech_segments, output_file=None):
+    logger.info("[Speech Recognition] {}", output_file)
+
     file_cache = f"{output_file}.whisper.json"
     if output_file and os.path.exists(file_cache):
         with open(file_cache, "r", encoding="utf-8") as f:
             json_data = json.load(f)
-            print(f"using cache {file_cache}")
+            logger.info(
+                "[Speech Recognition] {} -- skipping processing, using cache data. {}",
+                output_file,
+                file_cache,
+            )
             return json_data.get("speech_segments", [])
 
     start_time = time.time()
@@ -135,8 +170,13 @@ def transcribe(audio_samples, speech_segments, output_file=None):
     for i, seg in enumerate(speech_segments):
         start_sample = int(seg["start"])
         end_sample = int(seg["end"])
-        print(
-            f"Segment [{i + 1}/{len(speech_segments)}] starting at {start_sample} ending at {end_sample}"
+        logger.info(
+            "[Speech Recognition] {} processing segment {}/{} ({}s to {}s)",
+            output_file,
+            i + 1,
+            len(speech_segments),
+            start_sample / _TARGET_SR,
+            end_sample / _TARGET_SR,
         )
         segment_audio = audio_samples[start_sample:end_sample]
         result = model.transcribe(
@@ -156,6 +196,84 @@ def transcribe(audio_samples, speech_segments, output_file=None):
         with open(file_cache, "w", encoding="utf-8") as f:
             json.dump(json_data, f, indent=2)
     return speech_segments
+
+
+def diarization(audio_samples, speech_segments, output_file):
+    logger.info("[Diarization] {}", output_file)
+
+    file_cache = f"{output_file}.diarize.json"
+    if output_file and os.path.exists(file_cache):
+        with open(file_cache, "r", encoding="utf-8") as f:
+            json_data = json.load(f)
+            logger.info(
+                "[Diarization] {} -- skipping processing, using cache data. {}",
+                output_file,
+                file_cache,
+            )
+            return json_data.get("speech_segments", [])
+
+    start_time = time.time()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    encoder = VoiceEncoder(device=device)
+
+    embeddings = []
+    for i, seg in enumerate(speech_segments):
+        start_sample = int(seg["start"])
+        end_sample = int(seg["end"])
+        segment_audio = audio_samples[start_sample:end_sample]
+
+        # if len(segment_audio) < 16000:  # skip too short segments (<1s)
+        #     continue
+        logger.info(
+            "[Diarization] {} processing segment {}/{} for embedding",
+            output_file,
+            i + 1,
+            len(speech_segments),
+        )
+
+        emb = encoder.embed_utterance(segment_audio)
+        embeddings.append((seg, emb))
+
+    segs = [x[0] for x in embeddings]
+    embs = np.array([x[1] for x in embeddings])
+
+    clustering = AgglomerativeClustering(n_clusters=2)
+    logger.info(
+        "[Diarization] {} clustering embeddings",
+        output_file,
+    )
+    labels = clustering.fit_predict(embs)
+
+    diarized = []
+    for seg, label in zip(segs, labels):
+        diarized.append(
+            {
+                "start": seg["start"],
+                "end": seg["end"],
+                "text": seg.get("text", ""),
+                "speaker": f"SPEAKER_{label + 1}",
+            }
+        )
+    logger.info(
+        "[Diarization] {} clustering embeddings",
+        output_file,
+    )
+    end_time = time.time()
+
+    device_name = torch.cuda.get_device_name()
+    json_data = {
+        "device_name": device_name,
+        "original_duration_sec": len(audio_samples) / _TARGET_SR,
+        "num_speech_segments": len(speech_segments),
+        "clustering_model": "AgglomerativeClustering",
+        "runtime_sec": end_time - start_time,
+        "speech_segments": diarized,
+    }
+
+    if output_file:
+        with open(file_cache, "w", encoding="utf-8") as f:
+            json.dump(json_data, f, indent=2)
+    return diarized
 
 
 def visualize(audio_samples, speech_segments, output_file=None):
@@ -215,41 +333,6 @@ def recreate_audio(audio_samples, speech_segments, output_file=None):
     )
 
     sf.write(f"{output_file}.wav", result, _TARGET_SR)
-
-
-def diarization(audio_samples, speech_segments):
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    encoder = VoiceEncoder(device=device)
-
-    embeddings = []
-    for seg in speech_segments:
-        start_sample = int(seg["start"])
-        end_sample = int(seg["end"])
-        segment_audio = audio_samples[start_sample:end_sample]
-
-        # if len(segment_audio) < 16000:  # skip too short segments (<1s)
-        #     continue
-
-        emb = encoder.embed_utterance(segment_audio)
-        embeddings.append((seg, emb))
-
-    segs = [x[0] for x in embeddings]
-    embs = np.array([x[1] for x in embeddings])
-
-    clustering = AgglomerativeClustering(n_clusters=2)
-    labels = clustering.fit_predict(embs)
-
-    diarized = []
-    for seg, label in zip(segs, labels):
-        diarized.append(
-            {
-                "start": seg["start"],
-                "end": seg["end"],
-                "text": seg.get("text", ""),
-                "speaker": f"SPEAKER_{label + 1}",
-            }
-        )
-    return diarized
 
 
 def format_speech_segment_for_summary(speech_segments) -> str:
@@ -408,32 +491,91 @@ Speaker 1: Great, thanks. Next, the marketing update…
     return ""  # Fallback if no content found
 
 
-def main():
-    FILE = "Voice 260113_224416.m4a"
+def ttt(source_file):
+    os.makedirs(FOLDER_RESOURCE_PATH, exist_ok=True)
+
+    # Destination file in FOLDER_RESOURCE_PATH
+    FILE = os.path.join(FOLDER_RESOURCE_PATH, os.path.basename(source_file))
+    MD_FILE = os.path.join(FOLDER_PATH, os.path.basename(source_file))
+
+    # Copy file to resource folder
+    if os.path.exists(source_file):
+        shutil.copy2(source_file, FILE)
+        logger.info("[File Copy] Copied {} to {}", source_file, FILE)
+    else:
+        logger.error("[File Copy] Source file not found: {}", source_file)
+        return
+
     audio_data = load_audio(FILE)
     speech_segments = vad(audio_data, FILE)
+    speech_segments = transcribe(audio_data, speech_segments, FILE)
+    diarized_segments = diarization(audio_data, speech_segments, FILE)
     visualize(audio_data, speech_segments, FILE)
     recreate_audio(audio_data, speech_segments, FILE)
-    speech_segments = transcribe(audio_data, speech_segments, FILE)
-    diarized_segments = diarization(audio_data, speech_segments)
+
     txt_table = format_speech_segment_for_summary(diarized_segments)
+
     summary_md = summarize(txt_table)
     md_table = format_speech_segments_for_md(diarized_segments)
 
     # URL-encode filename (spaces become %20)
-    encoded_file = quote(FILE, safe="")
+    encoded_file = quote(os.path.basename(source_file), safe="")
+    base_file = os.path.basename(source_file)
     final_md = f"""{summary_md}
 
 # Visualization
 
-![VAD Visualization]({encoded_file}.png)
+![VAD Visualization](./resources/{encoded_file}.png)
+
+# Trimmed Audio
+
+![[{base_file}.wav]]
+
+# Full Audio
+
+![[{base_file}]]
 
 # Full Transcript
 
 {md_table}"""
 
-    with open(f"{FILE}.md", "w", encoding="utf-8") as f:
+    with open(f"{MD_FILE}.md", "w", encoding="utf-8") as f:
         f.write(final_md)
+
+
+def main():
+
+    directory = "drive-download-20260208T194027Z-3-001"
+
+    if os.path.exists(directory):
+        files = os.listdir(directory)
+        total_files = len(files)
+        logger.info(
+            "[Main] Found {} files to process in {}", total_files, directory
+        )
+
+        for i, file in enumerate(files, start=1):
+            logger.info(
+                "[Main] Processing file {} of {}: {}", i, total_files, file
+            )
+            try:
+                ttt(source_file=os.path.join(directory, file))
+                logger.info(
+                    "[Main] Successfully completed file {} of {}: {}",
+                    i,
+                    total_files,
+                    file,
+                )
+            except Exception as e:
+                logger.error(
+                    "[Main] Error processing file {} of {}: {} - {}",
+                    i,
+                    total_files,
+                    file,
+                    str(e),
+                )
+    else:
+        logger.error("[Main] Directory not found: {}", directory)
 
 
 if __name__ == "__main__":

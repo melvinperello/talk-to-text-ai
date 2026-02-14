@@ -13,5 +13,8 @@ matplotlib==3.10.7
 # Open AI Whispher
 openai-whisper==20250625
 
-#
+# Diarization
 Resemblyzer==0.1.4
+
+# Logging
+loguru==0.7.3
