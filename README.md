@@ -27,13 +27,20 @@ The process involved:
 -   OpenAI Whisper: Applied to transcribe the detected speech into text with high accuracy.
     This approach eliminated recurring provider fees while keeping transcription fully in-house, making it more sustainable and cost-effective for a small office environment.
     https://github.com/openai/whisper
+-   Diarization: Used to identify and separate different speakers in the recording,
+    allowing the system to attribute each transcribed segment to the correct speaker.
+    This provides clear context about who said what during the meeting.
+-   Summarization: Applied OpenAI's API to generate concise meeting summaries from the transcribed and attributed text.
+    This automated process transforms lengthy transcripts into brief, actionable summaries for quick reference.
 
 ```mermaid
 flowchart LR
     Meeting([Meeting]) --> Recording([Recording])
     Recording --> VAD([Silero VAD])
     VAD --> Whisper([OpenAI Whisper])
-    Whisper --> Notes([Meeting Notes])
+    Whisper --> Resemblyzer([Diarization])
+    Resemblyzer --> Summarization([Open AI API])
+    Summarization --> Notes([Meeting Notes])
 ```
 
 ## System Information
@@ -147,7 +154,7 @@ Python 3.12.10
 
 ### Requirements
 
-```bat
+```bash
 python -m venv env
 env\Scripts\activate.bat
 
