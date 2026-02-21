@@ -27,13 +27,20 @@ The process involved:
 -   OpenAI Whisper: Applied to transcribe the detected speech into text with high accuracy.
     This approach eliminated recurring provider fees while keeping transcription fully in-house, making it more sustainable and cost-effective for a small office environment.
     https://github.com/openai/whisper
+-   Diarization: Used to identify and separate different speakers in the recording,
+    allowing the system to attribute each transcribed segment to the correct speaker.
+    This provides clear context about who said what during the meeting.
+-   Summarization: Applied OpenAI's API to generate concise meeting summaries from the transcribed and attributed text.
+    This automated process transforms lengthy transcripts into brief, actionable summaries for quick reference.
 
 ```mermaid
 flowchart LR
     Meeting([Meeting]) --> Recording([Recording])
     Recording --> VAD([Silero VAD])
     VAD --> Whisper([OpenAI Whisper])
-    Whisper --> Notes([Meeting Notes])
+    Whisper --> Resemblyzer([Diarization])
+    Resemblyzer --> Summarization([Open AI API])
+    Summarization --> Notes([Meeting Notes])
 ```
 
 ## System Information
@@ -147,7 +154,7 @@ Python 3.12.10
 
 ### Requirements
 
-```bat
+```bash
 python -m venv env
 env\Scripts\activate.bat
 
@@ -164,21 +171,34 @@ pip install matplotlib
 # Open AI Whispher
 pip install openai-whisper
 
-# Xet Storage is enabled for this repo, but the 'hf_xet' package is not installed. Falling back to regular HTTP download. For better performance, install the package with: `pip install huggingface_hub[hf_xet]` or `pip install hf_xet`
-pip install transformers accelerate sentencepiece
+```
+
+### Requirements (Mac OS)
+```bash
+# https://phoenixnap.com/kb/ffmpeg-mac
+brew update
+brew upgrade
+brew install ffmpeg
+brew install xz
+brew install libsndfile
+
+# If python was install before ffmpeg, xz and libsndfile.
+# You need to uninstall and reinstall.
+# pyenv version
+# 3.12.12 (set by /Users/user/.pyenv/version)
+# pyenv uninstall 3.12.12
+# pyenv install 3.12.12
+
+python3 -m venv env
+source env/bin/activate
+
+pip install -r requirements-m1.txt
 ```
 
 ### How To Run?
 
-Create a folder named "01_recordings" and put all the m4a (recording files) in the folder.
-
 ```bash
-# Trim the audio this will create a folder "02_trimmed"
-python 02_trim.py
+python ttt.py <file>.m4a
 
-# This will create visuals of the audio after trimming and will create a folder "00_visualize"
-python 00_visualize.py
-
-# This will create a folder "03_transcripts" and will contain all the transcription.
-python 03_transcribe.py
+python ttt.py <directory>
 ```
