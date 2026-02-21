@@ -1,7 +1,6 @@
 # Silero VAD
---index-url https://download.pytorch.org/whl/cu129
-torch==2.8.0+cu129
---index-url https://pypi.org/simple/
+torch==2.8.0
+torchaudio==2.8.0
 numpy==2.3.5
 pydub==0.25.1
 packaging==25.0
@@ -21,3 +20,5 @@ loguru==0.7.3
 
 # Open AI
 openai==2.21.0
+
+# pip install "setuptools<70.0.0"

@@ -1,25 +1,28 @@
-from io import BytesIO
-from pydub import AudioSegment
-import soundfile as sf
-import numpy as np
-import librosa
-import torch
-import whisper
-import librosa
-from resemblyzer import VoiceEncoder
-from sklearn.cluster import AgglomerativeClustering
-import whisper
-import librosa.display
-import matplotlib.pyplot as plt
-from openai import OpenAI
-from urllib.parse import quote
+import argparse
 import json
-import time
 import os
 import shutil
-import sys
-import argparse
+import time
+from io import BytesIO
+from urllib.parse import quote
+
+import librosa
+import librosa.display
+import matplotlib.pyplot as plt
+import numpy as np
+import soundfile as sf
+import torch
+import whisper
 from loguru import logger
+from openai import OpenAI
+from pydub import AudioSegment
+from resemblyzer import VoiceEncoder
+from sklearn.cluster import AgglomerativeClustering
+
+from torch_util import get_torch_device_name, get_torch_device
+from dotenv import load_dotenv
+
+load_dotenv()  # reads variables from a .env file and sets them in os.environ
 
 client = OpenAI()
 
@@ -99,8 +102,8 @@ def vad(audio_samples, output_file=None):
             return json_data.get("speech_segments", [])
 
     start_time = time.time()
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    device_name = torch.cuda.get_device_name()
+    device = torch.device(get_torch_device())
+    device_name = get_torch_device_name()
     vad_model_name = "silero_vad"
     vad_model_source = "snakers4/silero-vad"
     audio_samples = audio_samples.astype(np.float32)
@@ -166,8 +169,8 @@ def transcribe(audio_samples, speech_segments, output_file=None):
             return json_data.get("speech_segments", [])
 
     start_time = time.time()
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    device_name = torch.cuda.get_device_name()
+    device = torch.device(get_torch_device())
+    device_name = get_torch_device_name()
     model = whisper.load_model("small", device=device)
     for i, seg in enumerate(speech_segments):
         start_sample = int(seg["start"])
@@ -215,7 +218,7 @@ def diarization(audio_samples, speech_segments, output_file):
             return json_data.get("speech_segments", [])
 
     start_time = time.time()
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = torch.device(get_torch_device())
     encoder = VoiceEncoder(device=device)
 
     embeddings = []
@@ -262,7 +265,7 @@ def diarization(audio_samples, speech_segments, output_file):
     )
     end_time = time.time()
 
-    device_name = torch.cuda.get_device_name()
+    device_name = get_torch_device_name()
     json_data = {
         "device_name": device_name,
         "original_duration_sec": len(audio_samples) / _TARGET_SR,

@@ -168,6 +168,39 @@ pip install openai-whisper
 pip install transformers accelerate sentencepiece
 ```
 
+### Requirements (Mac OS)
+```bash
+# https://phoenixnap.com/kb/ffmpeg-mac
+brew update
+brew upgrade
+brew install ffmpeg
+brew install xz
+brew install libsndfile
+
+# If python was install before ffmpeg, xz and libsndfile.
+# You need to uninstall and reinstall.
+# pyenv version
+# 3.12.12 (set by /Users/user/.pyenv/version)
+# pyenv uninstall 3.12.12
+# pyenv install 3.12.12
+
+python3 -m venv env
+source env/bin/activate
+
+# Silero VAD
+pip install torch torchaudio
+pip install numpy
+pip install pydub
+pip install packaging
+
+# Visualize
+pip install librosa
+pip install matplotlib
+
+# Open AI Whispher
+pip install openai-whisper
+```
+
 ### How To Run?
 
 Create a folder named "01_recordings" and put all the m4a (recording files) in the folder.
