@@ -20,5 +20,6 @@ loguru==0.7.3
 
 # Open AI
 openai==2.21.0
+dotenv==0.9.9
 
 # pip install "setuptools<70.0.0"

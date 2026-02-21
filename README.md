@@ -187,31 +187,13 @@ brew install libsndfile
 python3 -m venv env
 source env/bin/activate
 
-# Silero VAD
-pip install torch torchaudio
-pip install numpy
-pip install pydub
-pip install packaging
-
-# Visualize
-pip install librosa
-pip install matplotlib
-
-# Open AI Whispher
-pip install openai-whisper
+pip install -r requirements-m1.txt
 ```
 
 ### How To Run?
 
-Create a folder named "01_recordings" and put all the m4a (recording files) in the folder.
-
 ```bash
-# Trim the audio this will create a folder "02_trimmed"
-python 02_trim.py
+python ttt.py <file>.m4a
 
-# This will create visuals of the audio after trimming and will create a folder "00_visualize"
-python 00_visualize.py
-
-# This will create a folder "03_transcripts" and will contain all the transcription.
-python 03_transcribe.py
+python ttt.py <directory>
 ```
